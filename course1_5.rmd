@@ -1,0 +1,191 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+
+***Generabizability? (Answer: Yes)***
+
+First, let's talk about generabizability of this dataset. Having generabizability means that result of dataset can be applied to everyone or everything. We can get dataset which has generabizability by random sampling. What about brfss2013 data? Its result is based on telephone servey according to their website which means it has generabizability.  The survey is conducted using Random Digit Dialing (RDD) techniques on both landlines and cell phones. It has generabizability because using telephone servey,like this,collect data from people randomly chosen. 
+
+***Causalty? (Answer: No)***
+
+Then, what about causalty. Let's suppose there are three variables A, B and C and A and C has some positive relationship. If we can say A affects to C directly, thier relationship has causalty. But there might be confounding variable, affects on relationship of A and C. Like, A -> B -> C, not A -> C. To make sure causalty, random assignment is needed. brfss 2013 dataset is not random assignment dataset. This is just observational study. 
+
+
+* * *
+
+## Part 2: Research questions
+
+
+**Research question 1:**
+Variables are sleep time, exercise in last 30 days and gender.
+
+First, I wanted to see correlation between sleep time, exercise and gender. Because these are categorical variables, I use bar plots to visualize their relationship.
+For clarity, I grouped each sleep time value as, 0~6 hours: 'Insufficient, 7~9 hours: 'Sufficient', and more than 10 hours: 'Too much'. By this research, we can suggest guideline to keep healthy for each gender respectively.
+
+**Research question 2:**
+Variables are cancer, high blood pressure and fruit.
+
+I wanted to see if eating fruit every day affects to our health with respect to cancer and high blood pressure. We've heard that eating fruit frequently make us healthy, hence, investigating about relationship of these three variables is going to be meaningful. 
+For brevity, I divided all variables into two groups. Eating fruit everyday and not everyday for 'fruit1',  people who have been told they have high blood pressure or they are in border line and neither for 'bphigh4', and lastly, people who have been told they have any cancer and who haven't for 'chcocncr'.
+
+
+**Research question 3:**
+Variables are bmi and height.
+
+Let's take simple research for this last question. Does height affect to bmi meeasure? BMI is used for measure obesity. Finding out their relationship could be meaningful because it can be used as suggestion for someone who is fat or has some risk. It is going to be much more easy. I will check sccater plot and trend line to find relationship.
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+**Research quesion 1:**
+
+First, let's check correlation between sleep_time and exercise. I used sleep_level, which is transformated version of speltim1 (sleep hours), and exerany2, result of question that 'Did you participate in any physical activities or exercises in past 30 days'.
+
+And let's see the plot1.
+```{r}
+brfss2013 <- brfss2013 %>%
+  mutate(sleep_level = ifelse(sleptim1 %in% 0:6, "Insufficient",
+                            ifelse(sleptim1 %in% 7:9, "Sufficient",
+                                   ifelse(sleptim1 %in% 10:20, "Toomuch","N"))))
+
+brfss2013$sleep_level <- as.factor(brfss2013$sleep_level)
+brfss2013$exerany2 <- as.factor(brfss2013$exerany2)
+ggplot(brfss2013, aes(x=sleep_level, fill=exerany2)) + geom_bar(position = "dodge")
+```
+
+We can interpret this chart by checking ratio of Yes or NO for each sleep_level. Because these are simple categorical variables, it can be easily estimated by just looking. In 'Insufficient' and 'Toomuch' group, number of people who answered No is visibly greater than in 'Sufficient' group. So, we can say that people in 'Sufficient' group is more likely to exercise. But it doesn't mean causality. Rather than that, we only could say there may be confounding variable between their relationship.
+
+Then, what about gender? I wanted to find the difference between male and female.
+
+Let's see plot_2.
+```{r}
+
+ggplot(brfss2013, aes(x=sex, fill=exerany2)) + 
+  geom_bar(position="dodge")
+
+```
+
+According to data, there isn't significant difference between gender. So, by this 3 variables research, we could say that all people can be treated equally.
+
+
+
+
+**Research question 2:**
+
+Same as in question 1, make group for each value. In this research, I am going to remove all missing values for convinience, it's not appropriate though.
+
+Code below is just for preprocessing. So, you don't have to matter about that.
+
+```{r}
+Q2 <- brfss2013 %>%
+  select(fruit1, chcocncr, bphigh4) %>%
+  filter(fruit1 !="",
+         !is.na(fruit1),
+         !is.na(bphigh4),
+         !is.na(chcocncr))
+
+Q2 <- Q2 %>%
+  mutate(fruit = ifelse(fruit1 %in% 0, "not_Everyday", 
+                        ifelse(fruit1 %in% 101:199, "Everyday",
+                               ifelse(fruit1 %in% 201:399, "not_Everyday", "N"))))
+
+Q2 <- Q2 %>%
+  mutate(bp = ifelse(bphigh4 %in% c("Yes", "Told borderline or pre-hypertensive"), "bph",
+                     ifelse(bphigh4 %in% c("No", "Yes, but female told only during pregnancy"), "not_bph", "N")))
+
+Q2 <- Q2 %>%
+  mutate(cancer = ifelse(chcocncr %in% "Yes", "Cancer",
+                         ifelse(chcocncr %in% "No", "not_Cancer","N")))
+
+Q2 <- Q2 %>%
+  filter(fruit != "N")
+
+```
+
+
+And we also have to find something by chekcing barplot. These are two plot, each of which show relationship between cancer and high blood pressure.
+```{r}
+ggplot(Q2, aes(x=fruit, fill = cancer)) +
+  geom_bar(position="dodge")
+ggplot(Q2, aes(x=fruit, fill = bp)) +
+  geom_bar(position="dodge")
+```
+
+These graphs have exact same form of question1 but, as you can see, it's not easy to find any relationship by bar plot. In this research, checking exact percentage will be meaningful.
+
+```{r}
+cancer_ratio <- Q2 %>%
+  group_by(fruit, chcocncr) %>%
+  tally()
+
+print(cancer_ratio$n)
+
+bp_ratio <- Q2 %>%
+  group_by(fruit, bp) %>%
+  tally()
+
+print(bp_ratio$n)
+```
+
+```{r}
+cancer_ratio_diff <- (21520/(21520 + 188776) - 22609/(22609 + 222985))*100
+bp_ratio_diff <- (84955/(84955 + 125341) - 105199/(105199 + 140395))*100
+
+print(cancer_ratio_diff)
+print(bp_ratio_diff)
+
+```
+This is result. Last two numbers mean differnce of ratio between "Everyday fruit group" and "Not everyday fruit group", for cancer and high blood pressure repectively. 
+
+First, in cancer, it seems there isn't significant difference between those groups (+1.03%p), even showing everyday group has more chance to get cancer. In high blood pressure, there is also difference between them. Its chance decrease more than  2 percent point for everyday group.(-2.44%p)
+
+It can be interpreted like, eating fruit every day affect a little bit to chance of getting both disease. But, we have to notice that difference is small and it is just univariate investigation.
+
+
+
+**Research quesion 3:**
+
+Let's get into it straightforwardly. As I said, I'll check scatter plot with trend line of bmi and height.
+
+```{r}
+height <- brfss2013 %>%
+  select(htm4, X_bmi5) %>%
+  filter(!is.na(htm4),
+         !is.na(X_bmi5))
+
+ggplot(height, aes(x = htm4, y = X_bmi5)) + geom_point()+geom_smooth() + xlim(c(110,240))
+
+```
+
+Let's focus on trend line. It might seem that there is some negative relationship between them. But we have to consider that its negative relationship appears only when height has extreme value, like shorter than 140 or taller than 200. So, we can conclude that there is some negative relationship between height and bmi only when height has extreme value and there is no correlation between them when people has common height.
